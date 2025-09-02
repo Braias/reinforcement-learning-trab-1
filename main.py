@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class RecyclingRobot:
-    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.01,
+    def __init__(self, alpha=0.05, gamma=0.9, epsilon=0.1,
                  prob_down=0.2, prob_success=0.5,
                  r_wait=1, r_search=3):
 
@@ -29,7 +29,7 @@ class RecyclingRobot:
         }
 
         # Inicializa Q-valores
-        self.Q = {s: {a: 0 for a in self.actions[s]} for s in self.states}
+        self.Q = {s: {a: 20000 for a in self.actions[s]} for s in self.states}
 
         # Estado inicial
         self.state = "high"
@@ -41,7 +41,8 @@ class RecyclingRobot:
         """Política epsilon-greedy"""
         if np.random.rand() < self.epsilon:
             action =  np.random.choice(self.actions[state])
-        action =  max(self.Q[state], key=self.Q[state].get)
+        else:
+            action =  max(self.Q[state], key=self.Q[state].get)
         self.proportions[state][action] += 1
         return action
 
@@ -116,7 +117,7 @@ def prob_action(count_dict:dict[dict]):
 robot = RecyclingRobot(prob_down=0.2, prob_success=0.5,
                        r_wait=1, r_search=3)
 
-rewards = robot.train(epochs=100, steps=1000)
+rewards = robot.train(epochs=1000, steps=1000)
 
 action_dist = prob_action(robot.proportions)
 
