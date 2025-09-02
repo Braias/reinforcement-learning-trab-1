@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class RecyclingRobot:
-    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.1,
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.01,
                  prob_down=0.2, prob_success=0.5,
                  r_wait=1, r_search=3):
 
@@ -13,6 +13,9 @@ class RecyclingRobot:
         self.epsilon = epsilon    # taxa de exploração
         self.prob_down = prob_down  # probabilidade de cair de high -> low após search
         self.prob_success = prob_success  # probabilidade de sucesso no low-search
+        self.proportions = {"high":{"search":0, "wait":0, "recharge":0},
+                            "low":{"search":0, "wait":0, "recharge":0}
+                            }
 
         # Recompensas
         self.r_wait = r_wait
@@ -37,8 +40,10 @@ class RecyclingRobot:
     def choose_action(self, state):
         """Política epsilon-greedy"""
         if np.random.rand() < self.epsilon:
-            return np.random.choice(self.actions[state])
-        return max(self.Q[state], key=self.Q[state].get)
+            action =  np.random.choice(self.actions[state])
+        action =  max(self.Q[state], key=self.Q[state].get)
+        self.proportions[state][action] += 1
+        return action
 
     def step(self, action):
         """Executa ação, retorna recompensa e próximo estado"""
@@ -98,12 +103,22 @@ class RecyclingRobot:
         return rewards_per_epoch
 
 
+def prob_action(count_dict:dict[dict]):
+    counts = count_dict.copy()
+    for state_dict in counts.values():
+        sum_state = sum(state_dict.values())
+        for action, count in state_dict.items():
+            state_dict[action] = count/sum_state
+    return counts
+
 # ---------------------- Execução ----------------------
 
 robot = RecyclingRobot(prob_down=0.2, prob_success=0.5,
                        r_wait=1, r_search=3)
 
 rewards = robot.train(epochs=100, steps=1000)
+
+action_dist = prob_action(robot.proportions)
 
 # Plot curva de recompensa
 plt.plot(rewards)
@@ -113,13 +128,11 @@ plt.title("Aprendizado do Robô de Reciclagem")
 plt.show()
 
 # Política ótima (heatmap)
-policy = {s: max(robot.Q[s], key=robot.Q[s].get) for s in robot.states}
-policy_matrix = [[robot.Q["high"]["search"], robot.Q["high"]["wait"]],
-                 [robot.Q["low"]["search"], robot.Q["low"]["wait"]]]
+action_prob = [[action_dist["high"]["search"], action_dist["high"]["wait"], action_dist["high"]["recharge"]],
+                 [action_dist["low"]["search"], action_dist["low"]["wait"],action_dist["low"]["recharge"]]]
 
-sns.heatmap(policy_matrix, annot=True, fmt=".2f",
-            xticklabels=["search", "wait"],
+sns.heatmap(action_prob, annot=True, fmt=".2f",
+            xticklabels=["search", "wait", "recharge"],
             yticklabels=["high", "low"], cmap="coolwarm")
 plt.title("Q-valores aprendidos (Política ótima)")
 plt.show()
-
