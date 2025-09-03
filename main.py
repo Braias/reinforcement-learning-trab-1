@@ -83,23 +83,24 @@ class RecyclingRobot:
         td_error = td_target - self.Q[state][action]
         self.Q[state][action] += self.alpha * td_error
 
-    def train(self, epochs=50, steps=1000, save_file="rewards.txt"):
+    def train(self, epochs=50, steps=1000, save_file="rewards.txt", gen_file=True):
         rewards_per_epoch = []
+        for ep in range(epochs):
+            self.reset()
+            total_reward = 0
+            for _ in range(steps):
+                state = self.state
+                action = self.choose_action(state)
+                reward, next_state = self.step(action)
+                self.temporal_diff(state, action, reward, next_state)
+                self.state = next_state
+                total_reward += reward
+            rewards_per_epoch.append(total_reward)
 
-        with open(save_file, "w") as f:
-            for ep in range(epochs):
-                self.reset()
-                total_reward = 0
-                for _ in range(steps):
-                    state = self.state
-                    action = self.choose_action(state)
-                    reward, next_state = self.step(action)
-                    self.temporal_diff(state, action, reward, next_state)
-                    self.state = next_state
-                    total_reward += reward
-
-                rewards_per_epoch.append(total_reward)
-                f.write(f"{total_reward}\n")
+        if gen_file:    
+            with open(save_file, "w") as f:
+                for ep_reward in rewards_per_epoch:
+                    f.write(f"{ep_reward}\n")
 
         return rewards_per_epoch
 
@@ -112,14 +113,28 @@ def prob_action(count_dict:dict[dict]):
             state_dict[action] = count/sum_state
     return counts
 
+def multiple_train(model_count=10,epochs=1000,steps=1000):
+    sum_rewards = np.zeros((epochs,))
+    for i in range(model_count):
+        model = RecyclingRobot(prob_down=0.2, prob_success=0.5,r_wait=1, r_search=3)
+        model_rewards = np.array(model.train(epochs,steps,gen_file=False))
+        print(sum_rewards.shape, model_rewards.shape)
+        sum_rewards += model_rewards
+    return sum_rewards/model_count
+
+
+
+
 # ---------------------- Execução ----------------------
 
 robot = RecyclingRobot(prob_down=0.2, prob_success=0.5,
                        r_wait=1, r_search=3)
 
-rewards = robot.train(epochs=1000, steps=1000)
+rewards = robot.train(epochs=1000, steps=1000,gen_file=True)
 
 action_dist = prob_action(robot.proportions)
+
+avg_reward = multiple_train(model_count=25)
 
 # Plot curva de recompensa
 plt.plot(rewards)
@@ -127,6 +142,14 @@ plt.xlabel("Épocas")
 plt.ylabel("Recompensa total")
 plt.title("Aprendizado do Robô de Reciclagem")
 plt.show()
+
+# Plot Recompensa média
+plt.plot(avg_reward)
+plt.xlabel("Épocas")
+plt.ylabel("Recompensa total média")
+plt.title("Aprendizado dos Robôs de Reciclagem")
+plt.show()
+
 
 # Política ótima (heatmap)
 action_prob = [[action_dist["high"]["search"], action_dist["high"]["wait"], action_dist["high"]["recharge"]],
